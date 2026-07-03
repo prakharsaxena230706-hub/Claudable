@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: claudable-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: SUPABASE_URL
+        value: https://jzppihunmvapxnnjsehj.supabase.co
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: WORKSPACE_IMAGE
+        value: prakhardocker009/claudable-workspace:latest
+      - key: ALLOW_DOCKER
+        value: "true"
+      - key: PORT
+        value: "8000"
+      - key: FRONTEND_URL
+        value: https://claudable-pi.vercel.app
+    plan: free
