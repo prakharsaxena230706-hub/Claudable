@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js';
 
-const BASE    = import.meta.env.VITE_API_URL || '';
+export const BASE = import.meta.env.VITE_API_URL || '';
 const WS_BASE = import.meta.env.VITE_WS_URL  || '';
 
 async function authHeaders() {

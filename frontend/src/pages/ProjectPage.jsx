@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Send, ArrowLeft, Files, Eye, EyeOff, RefreshCw, X, ExternalLink } from 'lucide-react';
-import { connectWs, getHistory, getProjectFiles } from '../lib/api.js';
+import { connectWs, getHistory, getProjectFiles, BASE } from '../lib/api.js';
 
 export default function ProjectPage() {
   const { id }                          = useParams();
@@ -29,7 +29,7 @@ export default function ProjectPage() {
   // Strip /workspace/ prefix for clean display
   const trimPath = (p) => p.replace(/^\/workspace\//, '');
 
-  const previewUrl = `/api/projects/${id}/preview/index.html`;
+  const previewUrl = `${BASE}/api/projects/${id}/preview/index.html`;
 
   useEffect(() => {
   let cancelled = false;
@@ -105,7 +105,7 @@ export default function ProjectPage() {
     setLoadingFile(true);
     setFileContent('');
     try {
-      const res = await fetch(`/api/projects/${id}/preview/${path}`);
+      const res = await fetch(`${BASE}/api/projects/${id}/preview/${path}`);
       const text = await res.text();
       setFileContent(text);
     } catch (e) {
