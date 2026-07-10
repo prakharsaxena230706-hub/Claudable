@@ -138,7 +138,7 @@ app.get(/^\/api\/projects\/([^\/]+)\/preview\/(.*)/, async (req, res) => {
 
       res.setHeader('Content-Type', mime);
       res.setHeader('Cache-Control', 'no-store');
-      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+      res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://claudable-pi.vercel.app http://localhost:3000 http://localhost:5173");
       return res.send(content);
     }
 
@@ -223,7 +223,7 @@ app.get(/^\/api\/projects\/([^\/]+)\/preview\/(.*)/, async (req, res) => {
 
     res.setHeader('Content-Type', mime);
     res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://claudable-pi.vercel.app http://localhost:3000 http://localhost:5173");
     res.send(content);
 
   } catch (e) {
