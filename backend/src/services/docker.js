@@ -1,4 +1,9 @@
 const Docker = require('dockerode');
+const path = require('path');
+const fs = require('fs');
+const { exec: cpExec } = require('child_process');
+
+const PROJECTS_DIR = process.env.PROJECTS_DIR || path.join(__dirname, '..', '..', 'data', 'projects');
 
 const docker = new Docker({
   socketPath: process.platform === 'win32'
@@ -9,7 +14,29 @@ const docker = new Docker({
 const IMAGE = process.env.WORKSPACE_IMAGE || 'node:20-slim';
 const SHARED_CONTAINER_NAME = 'claudable-shared-workspace';
 
+let dockerAvailable = process.platform === 'win32'
+  ? true
+  : fs.existsSync('/var/run/docker.sock');
+
+async function initDocker() {
+  try {
+    await docker.ping();
+    dockerAvailable = true;
+    console.log('✓ Docker daemon is reachable');
+  } catch (err) {
+    dockerAvailable = false;
+    console.warn('⚠️ Docker daemon is unreachable. Falling back to local filesystem workspace mode.');
+  }
+}
+initDocker();
+
 async function createWorkspace(projectId) {
+  if (!dockerAvailable) {
+    console.log(`[LocalFS] Creating workspace directory for project ${projectId}`);
+    const localDir = path.resolve(PROJECTS_DIR, projectId);
+    await fs.promises.mkdir(localDir, { recursive: true });
+    return `local-fs:${projectId}`;
+  }
   try {
     const container = docker.getContainer(SHARED_CONTAINER_NAME);
     const info = await container.inspect();
@@ -48,6 +75,9 @@ async function createWorkspace(projectId) {
 async function ensureContainerRunning(containerId) {
   const [realContainerId] = containerId.split(':');
   const targetContainerId = realContainerId || containerId;
+  if (targetContainerId === 'local-fs') {
+    return true;
+  }
   try {
     const container = docker.getContainer(targetContainerId);
     const info = await container.inspect();
@@ -90,6 +120,93 @@ async function ensureContainerRunning(containerId) {
 async function execInContainer(containerId, cmd) {
   const [realContainerId, projectId] = containerId.split(':');
   const targetContainerId = realContainerId || containerId;
+
+  if (targetContainerId === 'local-fs' || !dockerAvailable) {
+    const targetProjectId = projectId || containerId.replace('local-fs:', '');
+    const workingDir = path.resolve(PROJECTS_DIR, targetProjectId);
+    await fs.promises.mkdir(workingDir, { recursive: true });
+
+    const program = cmd[0];
+
+    if (program === 'mkdir') {
+      const dirPath = cmd[cmd.length - 1];
+      const relative = dirPath.replace(/^\/workspace\/[^/]+/, '').replace(/^\/workspace/, '');
+      const absolute = path.join(workingDir, relative);
+      await fs.promises.mkdir(absolute, { recursive: true });
+      return '';
+    }
+
+    if (program === 'find') {
+      const getFiles = async (dir) => {
+        let results = [];
+        const list = await fs.promises.readdir(dir, { withFileTypes: true });
+        for (const file of list) {
+          const resPath = path.join(dir, file.name);
+          if (file.isDirectory()) {
+            if (file.name !== '.git' && file.name !== 'node_modules') {
+              results = results.concat(await getFiles(resPath));
+            }
+          } else {
+            if (file.name !== '.gitkeep') {
+              results.push(resPath);
+            }
+          }
+        }
+        return results;
+      };
+      try {
+        const absoluteFiles = await getFiles(workingDir);
+        const virtualFiles = absoluteFiles.map(f => {
+          const relative = path.relative(workingDir, f).replace(/\\/g, '/');
+          return `/workspace/${targetProjectId}/${relative}`;
+        });
+        return virtualFiles.join('\n');
+      } catch (err) {
+        return '';
+      }
+    }
+
+    if (program === 'cat') {
+      const virtualPath = cmd[1];
+      const relative = virtualPath.replace(/^\/workspace\/[^/]+/, '').replace(/^\/workspace/, '');
+      const absolute = path.join(workingDir, relative);
+      return fs.promises.readFile(absolute, 'utf8');
+    }
+
+    if (program === 'test') {
+      const virtualPath = cmd[cmd.length - 1];
+      const relative = virtualPath.replace(/^\/workspace\/[^/]+/, '').replace(/^\/workspace/, '');
+      const absolute = path.join(workingDir, relative);
+      try {
+        const stat = await fs.promises.stat(absolute);
+        if (stat.isFile()) return '';
+      } catch (err) {
+        throw new Error('File not found');
+      }
+    }
+
+    if (program === 'bash') {
+      const bashCmd = cmd[cmd.length - 1];
+      const resolvedBashCmd = bashCmd
+        .replace(new RegExp(`/workspace/${targetProjectId}`, 'g'), workingDir.replace(/\\/g, '/'))
+        .replace(/\/workspace/g, workingDir.replace(/\\/g, '/'));
+
+      return new Promise((resolve, reject) => {
+        cpExec(resolvedBashCmd, { cwd: workingDir }, (error, stdout, stderr) => {
+          if (error) reject(error);
+          else resolve(stdout || stderr || '');
+        });
+      });
+    }
+
+    const cmdStr = cmd.join(' ');
+    return new Promise((resolve, reject) => {
+      cpExec(cmdStr, { cwd: workingDir }, (error, stdout, stderr) => {
+        if (error) reject(error);
+        else resolve(stdout || stderr || '');
+      });
+    });
+  }
 
   await ensureContainerRunning(targetContainerId);
   const container = docker.getContainer(targetContainerId);
@@ -204,6 +321,19 @@ async function listWorkspaceFiles(containerId) {
 
 async function writeFileInContainer(containerId, filename, content) {
   const [realContainerId, projectId] = containerId.split(':');
+  const targetContainerId = realContainerId || containerId;
+
+  if (targetContainerId === 'local-fs' || !dockerAvailable) {
+    const targetProjectId = projectId || containerId.replace('local-fs:', '');
+    const workingDir = path.resolve(PROJECTS_DIR, targetProjectId);
+    const cleanFilename = filename.startsWith('/workspace/') ? filename.slice(11) : filename;
+    const absolutePath = path.join(workingDir, cleanFilename);
+    await fs.promises.mkdir(path.dirname(absolutePath), { recursive: true });
+    await fs.promises.writeFile(absolutePath, content, 'utf8');
+    console.log('[LocalFS] Written:', cleanFilename);
+    return;
+  }
+
   const baseDir = projectId ? `/workspace/${projectId}` : '/workspace';
   const cleanFilename = filename.startsWith('/workspace/') ? filename.slice(11) : filename;
 
@@ -217,6 +347,20 @@ async function writeFileInContainer(containerId, filename, content) {
 
 async function removeWorkspace(containerId) {
   const [realContainerId, projectId] = containerId.split(':');
+  const targetContainerId = realContainerId || containerId;
+
+  if (targetContainerId === 'local-fs' || !dockerAvailable) {
+    const targetProjectId = projectId || containerId.replace('local-fs:', '');
+    const workingDir = path.resolve(PROJECTS_DIR, targetProjectId);
+    console.log(`[LocalFS] Removing directory for project ${targetProjectId}`);
+    try {
+      await fs.promises.rm(workingDir, { recursive: true, force: true });
+    } catch (e) {
+      console.error(`[LocalFS] Failed to delete directory for project ${targetProjectId}:`, e.message);
+    }
+    return;
+  }
+
   if (projectId) {
     console.log(`Removing directory for project ${projectId} inside shared container`);
     try {

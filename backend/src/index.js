@@ -84,8 +84,47 @@ app.get(/^\/api\/projects\/([^\/]+)\/preview\/(.*)/, async (req, res) => {
     const [realContainerId, projId] = proj.container_id.split(':');
     const targetContainerId = realContainerId || proj.container_id;
 
-    if (targetContainerId) {
+    if (targetContainerId && targetContainerId !== 'local-fs') {
       await ensureContainerRunning(targetContainerId);
+    }
+
+    if (targetContainerId === 'local-fs') {
+      const path = require('path');
+      const fs = require('fs');
+      const PROJECTS_DIR = process.env.PROJECTS_DIR || path.join(__dirname, '..', 'data', 'projects');
+      const absolutePath = path.join(PROJECTS_DIR, projId, filename);
+
+      try {
+        await fs.promises.access(absolutePath);
+      } catch (e) {
+        console.log(`[LocalFS] Preview file ${filename} not found. Running self-healing file restoration...`);
+        await listWorkspaceFiles(proj.container_id);
+
+        try {
+          await fs.promises.access(absolutePath);
+        } catch (e2) {
+          return res.status(404).send(`
+            <html><body style="font-family:sans-serif;padding:2rem;background:#111;color:#888">
+              <h3>No preview yet</h3>
+              <p>File <code>${filename}</code> hasn't been generated. Ask the AI to create it!</p>
+            </body></html>
+          `);
+        }
+      }
+
+      const content = await fs.promises.readFile(absolutePath);
+      const ext  = filename.split('.').pop().toLowerCase();
+      const mime = {
+        html: 'text/html', css: 'text/css',
+        js:   'application/javascript', json: 'application/json',
+        png:  'image/png', jpg: 'image/jpeg',
+        svg:  'image/svg+xml', txt: 'text/plain',
+      }[ext] || 'text/plain';
+
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+      return res.send(content);
     }
 
     const Docker = require('dockerode');
