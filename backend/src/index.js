@@ -95,15 +95,19 @@ app.get(/^\/api\/projects\/([^\/]+)\/preview\/(.*)/, async (req, res) => {
     const [realContainerId, projId] = proj.container_id.split(':');
     const targetContainerId = realContainerId || proj.container_id;
 
-    if (targetContainerId && targetContainerId !== 'local-fs') {
+    const dockerService = require('./services/docker');
+    const useLocalFs = targetContainerId === 'local-fs' || targetContainerId.startsWith('local-fs') || !dockerService.isDockerAvailable();
+
+    if (targetContainerId && targetContainerId !== 'local-fs' && !useLocalFs) {
       await ensureContainerRunning(targetContainerId);
     }
 
-    if (targetContainerId === 'local-fs') {
+    if (useLocalFs) {
       const path = require('path');
       const fs = require('fs');
       const PROJECTS_DIR = process.env.PROJECTS_DIR || path.join(__dirname, '..', 'data', 'projects');
-      const absolutePath = path.join(PROJECTS_DIR, projId, filename);
+      const targetProjId = projId || projectId;
+      const absolutePath = path.join(PROJECTS_DIR, targetProjId, filename);
 
       try {
         await fs.promises.access(absolutePath);

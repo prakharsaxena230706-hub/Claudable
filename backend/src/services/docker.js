@@ -75,7 +75,7 @@ async function createWorkspace(projectId) {
 async function ensureContainerRunning(containerId) {
   const [realContainerId] = containerId.split(':');
   const targetContainerId = realContainerId || containerId;
-  if (targetContainerId === 'local-fs') {
+  if (targetContainerId === 'local-fs' || !dockerAvailable) {
     return true;
   }
   try {
