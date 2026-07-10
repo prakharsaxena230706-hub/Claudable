@@ -48,7 +48,7 @@ async function handleWsConnection(ws, req) {
       send(ws, 'stream_start', { projectId });
 
      try {
-        await runClaudeCode(activeContainerId, prompt, (stream, chunk) => {
+        const rawResponse = await runClaudeCode(activeContainerId, prompt, (stream, chunk) => {
           fullResponse += chunk;
           send(ws, 'stream_chunk', { stream, chunk });
         });
@@ -58,7 +58,7 @@ async function handleWsConnection(ws, req) {
 
         await supabase.from('chat_sessions').insert([
           { project_id: projectId, role: 'user',      message: prompt },
-          { project_id: projectId, role: 'assistant', message: fullResponse },
+          { project_id: projectId, role: 'assistant', message: rawResponse },
         ]);
 
       } catch (err) {

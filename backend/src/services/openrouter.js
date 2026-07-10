@@ -76,7 +76,7 @@ RULES:
     await new Promise(r => setTimeout(r, 8)); // slight delay for streaming feel
   }
 
-  return summary;
+  return buffer;
 }
 
 module.exports = { runClaudeCode };
