@@ -4,7 +4,7 @@ const express = require('express');
 const cors    = require('cors');
 const morgan  = require('morgan');
 const { WebSocketServer } = require('ws');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto');
 
 const app    = express();
 const server = http.createServer(app);
@@ -17,7 +17,7 @@ app.get('/health', (_, res) => res.json({ status: 'ok' }));
 
 const { authMiddleware, supabase }                             = require('./middleware/auth');
 const { createWorkspace, listWorkspaceFiles, removeWorkspace,
-        execInContainer }                                      = require('./services/docker');
+        execInContainer, ensureContainerRunning }              = require('./services/docker');
 
 app.get('/api/projects', authMiddleware, async (req, res) => {
   try {
@@ -81,6 +81,13 @@ app.get(/^\/api\/projects\/([^\/]+)\/preview\/(.*)/, async (req, res) => {
 
     if (!proj) return res.status(404).send('Project not found');
 
+    const [realContainerId, projId] = proj.container_id.split(':');
+    const targetContainerId = realContainerId || proj.container_id;
+
+    if (targetContainerId) {
+      await ensureContainerRunning(targetContainerId);
+    }
+
     const Docker = require('dockerode');
     const docker = new Docker({
       socketPath: process.platform === 'win32'
@@ -88,9 +95,11 @@ app.get(/^\/api\/projects\/([^\/]+)\/preview\/(.*)/, async (req, res) => {
         : '/var/run/docker.sock'
     });
 
+    const finalPath = projId ? `/workspace/${projId}/${filename}` : `/workspace/${filename}`;
+
     // First check the file exists
-    const checkExec = await docker.getContainer(proj.container_id).exec({
-      Cmd: ['test', '-f', `/workspace/${filename}`],
+    const checkExec = await docker.getContainer(targetContainerId).exec({
+      Cmd: ['test', '-f', finalPath],
       AttachStdout: true,
       AttachStderr: true,
     });
@@ -103,17 +112,36 @@ app.get(/^\/api\/projects\/([^\/]+)\/preview\/(.*)/, async (req, res) => {
     });
 
     if (checkInfo.ExitCode !== 0) {
-      return res.status(404).send(`
-        <html><body style="font-family:sans-serif;padding:2rem;background:#111;color:#888">
-          <h3>No preview yet</h3>
-          <p>File <code>${filename}</code> hasn't been generated. Ask the AI to create it!</p>
-        </body></html>
-      `);
+      // Self-heal: attempt to restore files from database chat sessions, then re-check
+      console.log(`Preview file ${filename} not found. Running self-healing file restoration...`);
+      await listWorkspaceFiles(proj.container_id);
+
+      const checkExec2 = await docker.getContainer(targetContainerId).exec({
+        Cmd: ['test', '-f', finalPath],
+        AttachStdout: true,
+        AttachStderr: true,
+      });
+      const checkStream2 = await checkExec2.start({ hijack: true });
+      const checkInfo2   = await new Promise(resolve => {
+        checkStream2.on('end', async () => {
+          const info = await checkExec2.inspect();
+          resolve(info);
+        });
+      });
+
+      if (checkInfo2.ExitCode !== 0) {
+        return res.status(404).send(`
+          <html><body style="font-family:sans-serif;padding:2rem;background:#111;color:#888">
+            <h3>No preview yet</h3>
+            <p>File <code>${filename}</code> hasn't been generated. Ask the AI to create it!</p>
+          </body></html>
+        `);
+      }
     }
 
     // Read the file
-    const exec = await docker.getContainer(proj.container_id).exec({
-      Cmd: ['cat', `/workspace/${filename}`],
+    const exec = await docker.getContainer(targetContainerId).exec({
+      Cmd: ['cat', finalPath],
       AttachStdout: true,
       AttachStderr: true,
     });

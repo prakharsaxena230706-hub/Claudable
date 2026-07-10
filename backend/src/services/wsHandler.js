@@ -25,30 +25,30 @@ async function handleWsConnection(ws, req) {
     try { msg = JSON.parse(raw); } catch { return; }
 
     if (msg.type === 'run_prompt') {
-      const { projectId, containerId, prompt } = msg;
+      const { projectId, prompt } = msg;
 
       console.log('=== run_prompt received ===');
       console.log('projectId:', projectId);
-      console.log('containerId:', containerId?.slice(0,12));
       console.log('prompt:', prompt);
 
-      if (!containerId) {
-        return send(ws, 'error', { message: 'No container ID — delete and recreate the project.' });
-      }
-
       const { data: proj } = await supabase
-        .from('projects').select('id')
+        .from('projects').select('id, container_id')
         .eq('id', projectId).eq('user_id', userId).single();
 
       if (!proj) {
         return send(ws, 'error', { message: 'Project not found.' });
       }
 
+      const activeContainerId = proj.container_id;
+      if (!activeContainerId) {
+        return send(ws, 'error', { message: 'No container ID associated with this project.' });
+      }
+
       let fullResponse = '';
       send(ws, 'stream_start', { projectId });
 
      try {
-        await runClaudeCode(containerId, prompt, (stream, chunk) => {
+        await runClaudeCode(activeContainerId, prompt, (stream, chunk) => {
           fullResponse += chunk;
           send(ws, 'stream_chunk', { stream, chunk });
         });

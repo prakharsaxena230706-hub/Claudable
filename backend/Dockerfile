@@ -14,4 +14,5 @@ ENV DOCKER_HOST=unix:///var/run/docker.sock
 
 EXPOSE 8000
 
+ENTRYPOINT []
 CMD ["node", "src/index.js"]
