@@ -380,5 +380,6 @@ module.exports = { execInContainer,
   listWorkspaceFiles,
   writeFileInContainer,
   removeWorkspace,
-  ensureContainerRunning
+  ensureContainerRunning,
+  isDockerAvailable: () => dockerAvailable
 };

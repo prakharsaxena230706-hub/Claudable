@@ -15,6 +15,17 @@ app.use(morgan('dev'));
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 
+app.get('/debug', (_, res) => {
+  const fs = require('fs');
+  const dockerService = require('./services/docker');
+  res.json({
+    dockerAvailable: dockerService.isDockerAvailable(),
+    platform: process.platform,
+    dockerSockExists: fs.existsSync('/var/run/docker.sock'),
+    time: new Date().toISOString()
+  });
+});
+
 const { authMiddleware, supabase }                             = require('./middleware/auth');
 const { createWorkspace, listWorkspaceFiles, removeWorkspace,
         execInContainer, ensureContainerRunning }              = require('./services/docker');
