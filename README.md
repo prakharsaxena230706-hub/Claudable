@@ -1,38 +1,212 @@
 # Claudable
 
-A cloud-native SaaS that runs AI-assisted code generation inside Docker containers. Users describe what they want to build in natural language — the AI generates files directly inside an isolated workspace container, with real-time streaming output and a live preview.
+### From Natural Language to Functional Websites, Powered by AI.
 
-## Stack
+Claudable is an AI-assisted code generation platform that transforms natural-language instructions into functional website projects and executes AI-generated code inside isolated, session-specific Docker workspaces.
 
-- **Frontend:** React + Vite, hosted on Vercel
-- **Backend:** Node.js + Express + WebSockets, hosted on Railway
-- **Database & Auth:** Supabase
-- **AI:** OpenRouter (GPT-4o-mini)
-- **Containers:** Docker (Dockerode)
+Users describe what they want to build, and Claudable leverages LLMs to generate the required project files directly within a workspace container. With real-time execution streaming and an interactive browser-based preview, users can experience their generated applications without manually configuring a development environment.
 
-## Setup
+**Generate. Execute. Preview. All in one place.**
 
-### Backend
+---
+
+## Key Features
+
+- **AI-Powered Website Generation:** Transform natural-language prompts into website code using LLM integration.
+- **Isolated Docker Workspaces:** Provision dedicated workspace containers for individual user sessions.
+- **Real-Time Execution Streaming:** Stream container execution output to the frontend through WebSockets.
+- **Live Browser Preview:** View the output of generated websites in an interactive browser environment.
+- **Container Lifecycle Management:** Manage Docker images and container provisioning, execution, and teardown.
+- **Authentication and Database:** Leverage Supabase for authentication and database functionality.
+
+---
+
+## System Architecture
+
+Claudable connects an AI generation pipeline with a containerized code execution environment.
+
+### Core Workflow
+
+1. **User Input:** The user describes a website or application through a natural-language prompt.
+2. **AI Generation:** The backend integrates with OpenRouter (GPT-4o-mini) to generate the required code.
+3. **Workspace Execution:** Generated project files are placed directly inside the user's Docker workspace.
+4. **Real-Time Streaming:** Execution output is streamed through WebSockets.
+5. **Live Preview:** The generated website is rendered inside the browser-based preview environment.
+
+### Architecture Overview
+
+```text
+             USER
+               |
+               v
+       React + Vite Frontend
+               |
+               v
+       Node.js + Express
+               |
+        +------+------+
+        |             |
+        v             v
+     OpenRouter    Supabase
+     GPT-4o-mini   Auth / DB
+        |
+        v
+    Generated Files
+        |
+        v
+    Dockerode
+        |
+        v
+   Docker Workspace
+        |
+        v
+   Code Execution
+        |
+        v
+   WebSocket Stream
+        |
+        v
+   Browser Live Preview
+```
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React, Vite |
+| Backend | Node.js, Express.js |
+| Communication | WebSockets |
+| Database & Authentication | Supabase |
+| AI Integration | OpenRouter, GPT-4o-mini |
+| Containerization | Docker |
+| Docker Integration | Dockerode |
+| Frontend Deployment | Vercel |
+| Backend Deployment | Railway |
+
+---
+
+## Project Structure
+
+```text
+Claudable/
+│
+├── frontend/
+│   ├── React application
+│   ├── Vite configuration
+│   └── Environment configuration
+│
+├── backend/
+│   ├── Express server
+│   ├── API routes
+│   ├── WebSocket handling
+│   ├── Docker integration
+│   └── Environment configuration
+│
+├── workspace/
+│   └── Dockerfile
+│
+└── README.md
+```
+
+*Refer to the repository for the complete implementation and directory structure.*
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js and npm
+- Docker installed and running
+- OpenRouter API key
+- Supabase project and credentials
+
+### 1. Clone the Repository
+
+```bash
+git clone <YOUR_REPOSITORY_URL>
+cd claudable
+```
+
+### 2. Configure the Backend
+
 ```bash
 cd backend
-cp .env.example .env   # fill in your keys
+cp .env.example .env
 npm install
 npm run dev
 ```
 
-### Frontend
+Add the required credentials to your backend environment file.
+
+### 3. Configure the Frontend
+
 ```bash
 cd frontend
-cp .env.example .env.local   # fill in your keys
+cp .env.example .env.local
 npm install
 npm run dev
 ```
 
-### Docker workspace image
+Configure the required frontend environment variables.
+
+### 4. Build the Docker Workspace Image
+
+From the project root:
+
 ```bash
 docker build -t claudable-workspace:latest ./workspace
 ```
 
+Make sure the Docker daemon is running before starting workspace execution.
+
+---
+
 ## Environment Variables
 
-See `backend/.env.example` and `frontend/.env.example`.
+The project uses separate environment configuration files:
+
+- `backend/.env.example`
+- `frontend/.env.example`
+
+Refer to these files for the complete list of required environment variables.
+
+Never commit actual API keys, database credentials, or other secrets to the repository.
+
+---
+
+## Deployment
+
+Claudable's application components are deployed using:
+
+- **Frontend:** Vercel
+- **Backend:** Railway
+- **Database & Authentication:** Supabase
+- **AI Provider:** OpenRouter
+- **Execution Environment:** Docker workspace containers
+
+Document the Docker Engine hosting arrangement and how the deployed backend connects to the workspace runtime here.
+
+---
+
+## Project Links
+
+- **GitHub Repository:** [Add repository link]
+- **Live Application:** [Add deployment link]
+- **Demo Video:** [Add demonstration video]
+
+---
+
+## Future Scope
+
+Potential areas for further development include:
+
+- Multi-framework website generation.
+- Improved AI-generated code validation and error recovery.
+- Workspace resource monitoring and execution controls.
+- Enhanced container security and resource isolation.
+- Iterative website modification through conversational prompts.
+- Automated testing and preview verification.
+
