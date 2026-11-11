@@ -126,7 +126,7 @@ Claudable/
 ### 1. Clone the Repository
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
+git clone <https://github.com/prakharsaxena230706-hub/Claudable.git>
 cd claudable
 ```
 
@@ -193,9 +193,8 @@ Document the Docker Engine hosting arrangement and how the deployed backend conn
 
 ## Project Links
 
-- **GitHub Repository:** [Add repository link]
-- **Live Application:** [Add deployment link]
-- **Demo Video:** [Add demonstration video]
+- **GitHub Repository:** https://github.com/prakharsaxena230706-hub/Claudable.git
+- **Live Application:** https://claudable-pi.vercel.app/
 
 ---
 
